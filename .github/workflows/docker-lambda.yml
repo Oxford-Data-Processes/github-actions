@@ -79,7 +79,7 @@ jobs:
             --build-arg AWS_ACCESS_KEY_ID_ADMIN=$AWS_ACCESS_KEY_ID \
             --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=$AWS_SECRET_ACCESS_KEY \
             --build-arg STAGE=$STAGE \
-            -t $DOCKER_IMAGE $BUILD_DIR
+            -t $DOCKER_IMAGE:$VERSION_NUMBER $BUILD_DIR
 
           # Tag and push the Docker image
           docker tag $DOCKER_IMAGE:$VERSION_NUMBER $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:$VERSION_NUMBER
