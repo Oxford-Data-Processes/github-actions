@@ -57,6 +57,7 @@ jobs:
             echo "AWS_ACCOUNT_ID=${{ env.AWS_ACCOUNT_ID_PROD }}" >> $GITHUB_ENV
             echo "ROLE=${{ env.ROLE_PROD }}" >> $GITHUB_ENV
           fi
+          echo ${{ env.AWS_ACCOUNT_ID }}
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
           if ! aws ecr describe-repositories --repository-names ${{ inputs.DOCKER_IMAGE }} --region ${{ env.AWS_REGION }}; then
             aws ecr create-repository --repository-name ${{ inputs.DOCKER_IMAGE }} --region ${{ env.AWS_REGION }}
