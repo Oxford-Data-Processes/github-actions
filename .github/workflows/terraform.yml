@@ -6,7 +6,6 @@ env:
   AWS_ACCOUNT_ID_PROD: "905418370160"
   ROLE_DEV: "DevAdminRole"
   ROLE_PROD: "ProdAdminRole"
-  TF_VERSION: "1.9.5"
 
 on:
   workflow_call:
@@ -49,7 +48,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: ${{ env.TF_VERSION }}
+          terraform_version: "1.9.5"
 
       - name: Apply Terraform
         env:
@@ -63,7 +62,11 @@ jobs:
         run: |
           cd infra
           terraform fmt -check
-          terraform init -backend-config=backend/backend_config_dev.tfvars
+          terraform init 
+            -backend-config="bucket=terraform-state-${{ env.AWS_ACCOUNT_ID }}" \
+            -backend-config="dynamodb_table=terraform-lock" \
+            -backend-config="key=$PROJECT/terraform.tfstate"
+            -backend-config="region=$AWS_REGION" \
           terraform plan -no-color \
             -var "aws_account_id=$AWS_ACCOUNT_ID" \
             -var "aws_region=$AWS_REGION" \
