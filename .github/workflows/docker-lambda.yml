@@ -27,6 +27,9 @@ on:
       BUILD_DIR:
         required: true
         type: string
+      VERSION_NUMBER:
+        required: true
+        type: string
 
 jobs:
   reusable_workflow_job:
@@ -47,15 +50,16 @@ jobs:
 
       - name: Build and Push Docker Image to ECR
         env:
+          STAGE: ${{ inputs.STAGE }}
           AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
           AWS_REGION: ${{ env.AWS_REGION }}
-          # Set AWS_ACCOUNT_ID and ROLE based on the STAGE input
           AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
           ROLE: ${{ inputs.STAGE == 'dev' && env.ROLE_DEV || env.ROLE_PROD }}
           DOCKER_IMAGE: ${{ inputs.PROJECT }}-${{ inputs.LAMBDA_NAME }}-docker-image
           BUILD_DIR: ${{ inputs.BUILD_DIR }}
+          VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
           echo "Logging in to ECR..."
           echo "Using AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
@@ -64,17 +68,17 @@ jobs:
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
           
           # Check if the repository exists, create if it doesn't
-          if ! aws ecr describe-repositories --repository-names ${{ inputs.PROJECT }} --region $AWS_REGION; then
+          if ! aws ecr describe-repositories --repository-names $DOCKER_IMAGE --region $AWS_REGION; then
             aws ecr create-repository --repository-name $DOCKER_IMAGE --region $AWS_REGION
           fi
 
           # Build the Docker image
           docker buildx build --platform linux/amd64 \
-            --build-arg AWS_ACCESS_KEY_ID_ADMIN=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            --build-arg STAGE=${{ inputs.STAGE }} \
+            --build-arg AWS_ACCESS_KEY_ID_ADMIN=$AWS_ACCESS_KEY_ID \
+            --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=$AWS_SECRET_ACCESS_KEY \
+            --build-arg STAGE=$STAGE \
             -t $DOCKER_IMAGE $BUILD_DIR
 
           # Tag and push the Docker image
-          docker tag $DOCKER_IMAGE:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:latest
-          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:latest
+          docker tag $DOCKER_IMAGE:$VERSION_NUMBER $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:$VERSION_NUMBER
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:$VERSION_NUMBER
