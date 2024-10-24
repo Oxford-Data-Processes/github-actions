@@ -1,9 +1,9 @@
 name: AWS Credentials
 
 env:
+  AWS_REGION: "eu-west-2"
   AWS_ACCOUNT_ID_DEV: "654654324108"
   AWS_ACCOUNT_ID_PROD: "1234567890"
-  AWS_REGION: "eu-west-2"
   ROLE_DEV: "DevAdminRole"
   ROLE_PROD: "ProdAdminRole"
 
@@ -18,10 +18,13 @@ on:
       STAGE:
         required: true
         type: string
-      DOCKER_IMAGE:
+      PROJECT:
         required: true
         type: string
-      DOCKER_BUILD_DIR:
+      LAMBDA_NAME:
+        required: true
+        type: string
+      BUILD_DIR:
         required: true
         type: string
 
@@ -51,6 +54,8 @@ jobs:
           # Set AWS_ACCOUNT_ID and ROLE based on the STAGE input
           AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
           ROLE: ${{ inputs.STAGE == 'dev' && env.ROLE_DEV || env.ROLE_PROD }}
+          DOCKER_IMAGE: ${{ inputs.PROJECT }}-${{ inputs.LAMBDA_NAME }}-docker-image
+          BUILD_DIR: ${{ inputs.BUILD_DIR }}
         run: |
           echo "Logging in to ECR..."
           echo "Using AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
@@ -59,8 +64,8 @@ jobs:
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
           
           # Check if the repository exists, create if it doesn't
-          if ! aws ecr describe-repositories --repository-names ${{ inputs.DOCKER_IMAGE }} --region $AWS_REGION; then
-            aws ecr create-repository --repository-name ${{ inputs.DOCKER_IMAGE }} --region $AWS_REGION
+          if ! aws ecr describe-repositories --repository-names ${{ inputs.PROJECT }} --region $AWS_REGION; then
+            aws ecr create-repository --repository-name $DOCKER_IMAGE --region $AWS_REGION
           fi
 
           # Build the Docker image
@@ -68,8 +73,8 @@ jobs:
             --build-arg AWS_ACCESS_KEY_ID_ADMIN=${{ secrets.AWS_ACCESS_KEY_ID }} \
             --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
             --build-arg STAGE=${{ inputs.STAGE }} \
-            -t ${{ inputs.DOCKER_IMAGE }} ${{ inputs.DOCKER_BUILD_DIR }}
+            -t $DOCKER_IMAGE $BUILD_DIR
 
           # Tag and push the Docker image
-          docker tag ${{ inputs.DOCKER_IMAGE }}:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ inputs.DOCKER_IMAGE }}:latest
-          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ inputs.DOCKER_IMAGE }}:latest
+          docker tag $DOCKER_IMAGE:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:latest
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:latest
