@@ -56,8 +56,6 @@ jobs:
           AWS_REGION: ${{ env.AWS_REGION }}
           STAGE: ${{ inputs.STAGE }}
           PROJECT: ${{ inputs.PROJECT }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
           cd infra
