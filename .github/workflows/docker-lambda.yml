@@ -3,7 +3,7 @@ name: AWS Credentials
 env:
   AWS_REGION: "eu-west-2"
   AWS_ACCOUNT_ID_DEV: "654654324108"
-  AWS_ACCOUNT_ID_PROD: "1234567890"
+  AWS_ACCOUNT_ID_PROD: "905418370160"
   ROLE_DEV: "DevAdminRole"
   ROLE_PROD: "ProdAdminRole"
 
