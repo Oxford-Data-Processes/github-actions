@@ -62,11 +62,11 @@ jobs:
         run: |
           cd infra
           terraform fmt -check
-          terraform init 
+          terraform init \
             -backend-config="bucket=terraform-state-${{ env.AWS_ACCOUNT_ID }}" \
             -backend-config="dynamodb_table=terraform-lock" \
-            -backend-config="key=$PROJECT/terraform.tfstate"
-            -backend-config="region=$AWS_REGION" \
+            -backend-config="key=$PROJECT/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION"
           terraform plan -no-color \
             -var "aws_account_id=$AWS_ACCOUNT_ID" \
             -var "aws_region=$AWS_REGION" \
