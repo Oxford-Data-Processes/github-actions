@@ -21,10 +21,7 @@ on:
       PROJECT:
         required: true
         type: string
-      LAMBDA_NAME:
-        required: true
-        type: string
-      BUILD_DIR:
+      CONFIG:
         required: true
         type: string
       VERSION_NUMBER:
@@ -49,7 +46,6 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r .Credentials.SecretAccessKey)" >> $GITHUB_ENV
           echo "AWS_SESSION_TOKEN=$(echo $output | jq -r .Credentials.SessionToken)" >> $GITHUB_ENV
 
-
       - name: Build and Push Docker Image to ECR
         env:
           STAGE: ${{ inputs.STAGE }}
@@ -59,8 +55,8 @@ jobs:
           AWS_REGION: ${{ env.AWS_REGION }}
           AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
           ROLE: ${{ inputs.STAGE == 'dev' && env.ROLE_DEV || env.ROLE_PROD }}
-          DOCKER_IMAGE: ${{ inputs.PROJECT }}-${{ inputs.LAMBDA_NAME }}-docker-image
-          BUILD_DIR: ${{ inputs.BUILD_DIR }}
+          DOCKER_IMAGE: ${{ inputs.PROJECT }}-${{ fromJson(inputs.CONFIG)[0].lambda_name }}-docker-image
+          BUILD_DIR: ${{ fromJson(inputs.CONFIG)[0].build_directory }}
           VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
           echo "Logging in to ECR..."
