@@ -1,12 +1,70 @@
-name: Docker Lambda
+name: AWS Credentials
+
+env:
+  AWS_ACCOUNT_ID_DEV: "654654324108"
+  AWS_ACCOUNT_ID_PROD: "1234567890"
+  AWS_REGION: "eu-west-2"
+  ROLE_DEV: "DevAdminRole"
+  ROLE_PROD: "ProdAdminRole"
 
 on:
   workflow_call:
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+    inputs:
+      STAGE:
+        required: true
+        type: string
+      DOCKER_IMAGE:
+        required: true
+        type: string
+      DOCKER_BUILD_DIR:
+        required: true
+        type: string
 
 jobs:
-  hello:
+  reusable_workflow_job:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Print Hello World
-        run: echo "hello world"
+
+      - name: Assume Role
+        env:
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          output=$(aws sts assume-role --role-arn arn:aws:iam::${{ env.AWS_ACCOUNT_ID_DEV }}:role/${{ env.ROLE_DEV }} --role-session-name MySession)
+          echo "AWS_ACCESS_KEY_ID=$(echo $output | jq -r .Credentials.AccessKeyId)" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r .Credentials.SecretAccessKey)" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$(echo $output | jq -r .Credentials.SessionToken)" >> $GITHUB_ENV
+
+
+      - name: Build and Push Docker Image to ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
+        run: |
+        
+          echo "Logging in to ECR..."
+          if [ "${{ inputs.STAGE }}" == "dev" ]; then
+            echo "AWS_ACCOUNT_ID=${{ env.AWS_ACCOUNT_ID_DEV }}" >> $GITHUB_ENV
+            echo "ROLE=${{ env.ROLE_DEV }}" >> $GITHUB_ENV
+          else
+            echo "AWS_ACCOUNT_ID=${{ env.AWS_ACCOUNT_ID_PROD }}" >> $GITHUB_ENV
+            echo "ROLE=${{ env.ROLE_PROD }}" >> $GITHUB_ENV
+          fi
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          if ! aws ecr describe-repositories --repository-names ${{ inputs.DOCKER_IMAGE }} --region ${{ env.AWS_REGION }}; then
+            aws ecr create-repository --repository-name ${{ inputs.DOCKER_IMAGE }} --region ${{ env.AWS_REGION }}
+          fi
+          docker buildx build --platform linux/amd64 \
+            --build-arg AWS_ACCESS_KEY_ID_ADMIN=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --build-arg STAGE=${{ inputs.STAGE }} \
+            -t ${{ inputs.DOCKER_IMAGE }} ${{ inputs.DOCKER_BUILD_DIR }}
+          docker tag ${{ inputs.DOCKER_IMAGE }}:latest ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ inputs.DOCKER_IMAGE }}:latest
+          docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ inputs.DOCKER_IMAGE }}:latest
