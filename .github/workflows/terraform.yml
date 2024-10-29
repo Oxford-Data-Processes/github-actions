@@ -53,6 +53,8 @@ jobs:
       - name: Apply Terraform
         env:
           AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
+          AWS_ACCESS_KEY_ID_ADMIN: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY_ADMIN: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ env.AWS_REGION }}
           STAGE: ${{ inputs.STAGE }}
           PROJECT: ${{ inputs.PROJECT }}
@@ -71,14 +73,14 @@ jobs:
             -var "aws_region=$AWS_REGION" \
             -var "stage=$STAGE" \
             -var "project=$PROJECT" \
-            -var "aws_access_key_id_admin=$AWS_ACCESS_KEY_ID" \
-            -var "aws_secret_access_key_admin=$AWS_SECRET_ACCESS_KEY" \
+            -var "aws_access_key_id_admin=$AWS_ACCESS_KEY_ID_ADMIN" \
+            -var "aws_secret_access_key_admin=$AWS_SECRET_ACCESS_KEY_ADMIN" \
             -var "version_number=$VERSION_NUMBER"
           terraform apply -auto-approve \
             -var "aws_account_id=$AWS_ACCOUNT_ID" \
             -var "aws_region=$AWS_REGION" \
             -var "stage=$STAGE" \
             -var "project=$PROJECT" \
-            -var "aws_access_key_id_admin=$AWS_ACCESS_KEY_ID" \
-            -var "aws_secret_access_key_admin=$AWS_SECRET_ACCESS_KEY" \
+            -var "aws_access_key_id_admin=$AWS_ACCESS_KEY_ID_ADMIN" \
+            -var "aws_secret_access_key_admin=$AWS_SECRET_ACCESS_KEY_ADMIN" \
             -var "version_number=$VERSION_NUMBER"
