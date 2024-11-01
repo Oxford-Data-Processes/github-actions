@@ -60,7 +60,6 @@ jobs:
           PROJECT: ${{ inputs.PROJECT }}
           VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
-          cd infra
           terraform fmt -check
           terraform init \
             -backend-config="bucket=terraform-state-${{ env.AWS_ACCOUNT_ID }}" \
