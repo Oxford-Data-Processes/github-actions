@@ -60,14 +60,15 @@ jobs:
           PROJECT: ${{ inputs.PROJECT }}
           VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
-          terraform fmt -check infra
-          terraform -chdir=infra init \
+          cd infra
+          terraform fmt -check
+          terraform init \
             -backend-config="bucket=terraform-state-${{ env.AWS_ACCOUNT_ID }}" \
             -backend-config="dynamodb_table=terraform-lock" \
             -backend-config="key=$PROJECT/terraform.tfstate" \
             -backend-config="region=$AWS_REGION" \
             -backend-config="encrypt=true"
-          terraform -chdir=infra plan -no-color \
+          terraform plan -no-color \
             -var "aws_account_id=$AWS_ACCOUNT_ID" \
             -var "aws_region=$AWS_REGION" \
             -var "stage=$STAGE" \
@@ -75,7 +76,7 @@ jobs:
             -var "aws_access_key_id_admin=$AWS_ACCESS_KEY_ID_ADMIN" \
             -var "aws_secret_access_key_admin=$AWS_SECRET_ACCESS_KEY_ADMIN" \
             -var "version_number=$VERSION_NUMBER"
-          terraform -chdir=infra apply -auto-approve \
+          terraform apply -auto-approve \
             -var "aws_account_id=$AWS_ACCOUNT_ID" \
             -var "aws_region=$AWS_REGION" \
             -var "stage=$STAGE" \
