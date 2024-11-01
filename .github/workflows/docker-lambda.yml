@@ -74,6 +74,9 @@ jobs:
             aws ecr create-repository --repository-name $DOCKER_IMAGE --region $AWS_REGION
           fi
 
+          # Download the Dockerfile from the remote repository
+          curl -o Dockerfile https://raw.githubusercontent.com/Oxford-Data-Processes/aws-utils/refs/heads/main/docker/lambda/Dockerfile
+
           # Build the Docker image
           docker buildx build --platform linux/amd64 \
             --build-arg AWS_ACCESS_KEY_ID_ADMIN=$AWS_ACCESS_KEY_ID_ADMIN \
