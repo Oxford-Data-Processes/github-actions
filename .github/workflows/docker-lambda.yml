@@ -74,8 +74,8 @@ jobs:
             aws ecr create-repository --repository-name $DOCKER_IMAGE --region $AWS_REGION
           fi
 
-          # Download the Dockerfile from the remote repository
-          curl -o Dockerfile https://raw.githubusercontent.com/Oxford-Data-Processes/aws-utils/refs/heads/main/docker/lambda/Dockerfile
+          # Copy the Dockerfile to the build directory
+          curl -o $BUILD_DIR/Dockerfile https://raw.githubusercontent.com/Oxford-Data-Processes/aws-utils/refs/heads/main/docker/lambda/Dockerfile
 
           # Build the Docker image
           docker buildx build --platform linux/amd64 \
