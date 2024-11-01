@@ -67,9 +67,6 @@ jobs:
             -backend-config="key=$PROJECT/terraform.tfstate" \
             -backend-config="region=$AWS_REGION" \
             -backend-config="encrypt=true" \
-            -input=false \
-            -no-color \
-            -chdir=infra/
           terraform plan -no-color \
             -var "aws_account_id=$AWS_ACCOUNT_ID" \
             -var "aws_region=$AWS_REGION" \
