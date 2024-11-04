@@ -74,15 +74,14 @@ jobs:
             aws ecr create-repository --repository-name $DOCKER_IMAGE --region $AWS_REGION
           fi
 
-          curl -o Dockerfile https://raw.githubusercontent.com/Oxford-Data-Processes/snippets/refs/heads/main/docker/lambda/Dockerfile
+          curl -o $BUILD_DIR/Dockerfile https://raw.githubusercontent.com/Oxford-Data-Processes/snippets/refs/heads/main/docker/lambda/Dockerfile
 
           # Build the Docker image
           docker buildx build --platform linux/amd64 \
             --build-arg AWS_ACCESS_KEY_ID_ADMIN=$AWS_ACCESS_KEY_ID_ADMIN \
             --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=$AWS_SECRET_ACCESS_KEY_ADMIN \
             --build-arg STAGE=$STAGE \
-            --build-arg BUILD_DIR=$BUILD_DIR \
-            -t $DOCKER_IMAGE:$VERSION_NUMBER .
+            -t $DOCKER_IMAGE:$VERSION_NUMBER $BUILD_DIR
 
           # Tag and push the Docker image
           docker tag $DOCKER_IMAGE:$VERSION_NUMBER $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:$VERSION_NUMBER
