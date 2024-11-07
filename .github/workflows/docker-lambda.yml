@@ -59,10 +59,13 @@ jobs:
           AWS_REGION: ${{ env.AWS_REGION }}
           AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
           ROLE: ${{ inputs.STAGE == 'dev' && env.ROLE_DEV || env.ROLE_PROD }}
-          DOCKER_IMAGE: ${{ inputs.PROJECT }}-${{ fromJson(inputs.CONFIG).lambda_name }}-image
           BUILD_DIR: ${{ fromJson(inputs.CONFIG).build_directory }}
           VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
+
+          PROJECT=$(echo $PROJECT_FULL_NAME | awk -F'/' '{print $NF}')
+          DOCKER_IMAGE=${{ inputs.PROJECT }}-${{ fromJson(inputs.CONFIG).lambda_name }}-image
+
           echo "Logging in to ECR..."
           echo "Using AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
           

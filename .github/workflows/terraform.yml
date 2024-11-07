@@ -57,9 +57,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY_ADMIN: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ env.AWS_REGION }}
           STAGE: ${{ inputs.STAGE }}
-          PROJECT: ${{ inputs.PROJECT }}
+          PROJECT_FULL_NAME: ${{ inputs.PROJECT }}
           VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
         run: |
+          PROJECT=$(echo $PROJECT_FULL_NAME | awk -F'/' '{print $NF}')
           cd infra
           terraform fmt -check
           terraform init \
