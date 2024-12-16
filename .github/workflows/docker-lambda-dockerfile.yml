@@ -1,0 +1,97 @@
+name: AWS Credentials
+
+env:
+  AWS_REGION: "eu-west-2"
+  AWS_ACCOUNT_ID_DEV: "654654324108"
+  AWS_ACCOUNT_ID_PROD: "905418370160"
+  ROLE_DEV: "DevAdminRole"
+  ROLE_PROD: "ProdAdminRole"
+
+on:
+  workflow_call:
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+    inputs:
+      STAGE:
+        required: true
+        type: string
+      PROJECT:
+        required: true
+        type: string
+      CONFIG:
+        required: true
+        type: string
+      VERSION_NUMBER:
+        required: true
+        type: string
+
+jobs:
+  reusable_workflow_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Assume Role
+        env:
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ROLE: ${{ inputs.STAGE == 'dev' && env.ROLE_DEV || env.ROLE_PROD }}
+          AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
+        run: |
+          output=$(aws sts assume-role --role-arn arn:aws:iam::$AWS_ACCOUNT_ID:role/$ROLE --role-session-name MySession)
+          echo "AWS_ACCESS_KEY_ID=$(echo $output | jq -r .Credentials.AccessKeyId)" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r .Credentials.SecretAccessKey)" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$(echo $output | jq -r .Credentials.SessionToken)" >> $GITHUB_ENV
+
+      - name: Build and Push Docker Image to ECR
+        env:
+          STAGE: ${{ inputs.STAGE }}
+          AWS_ACCESS_KEY_ID_ADMIN: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY_ADMIN: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCOUNT_ID: ${{ inputs.STAGE == 'dev' && env.AWS_ACCOUNT_ID_DEV || env.AWS_ACCOUNT_ID_PROD }}
+          ROLE: ${{ inputs.STAGE == 'dev' && env.ROLE_DEV || env.ROLE_PROD }}
+          BUILD_DIR: ${{ fromJson(inputs.CONFIG).build_directory }}
+          PROJECT_FULL_NAME: ${{ inputs.PROJECT }}
+          VERSION_NUMBER: ${{ inputs.VERSION_NUMBER }}
+        run: |
+
+          PROJECT=$(echo $PROJECT_FULL_NAME | awk -F'/' '{print $NF}')
+          DOCKER_IMAGE=$PROJECT-${{ fromJson(inputs.CONFIG).lambda_name }}-image
+
+          echo "Logging in to ECR..."
+          echo "Using AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
+          
+          # Log in to ECR
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+          
+          # Check if the repository exists, create if it doesn't
+          if ! aws ecr describe-repositories --repository-names $DOCKER_IMAGE --region $AWS_REGION; then
+            aws ecr create-repository --repository-name $DOCKER_IMAGE --region $AWS_REGION
+          fi
+
+          # Use the Dockerfile from the local directory
+          DOCKERFILE_PATH="$BUILD_DIR/Dockerfile"
+
+          # Build the Docker image
+          docker buildx build --platform linux/amd64 \
+            --build-arg AWS_ACCESS_KEY_ID_ADMIN=$AWS_ACCESS_KEY_ID_ADMIN \
+            --build-arg AWS_SECRET_ACCESS_KEY_ADMIN=$AWS_SECRET_ACCESS_KEY_ADMIN \
+            --build-arg STAGE=$STAGE \
+            -t $DOCKER_IMAGE:$VERSION_NUMBER -f $DOCKERFILE_PATH $BUILD_DIR
+
+          # Remove the previous Docker image with version number ($VERSION_NUMBER - 1)
+          PREVIOUS_VERSION_NUMBER=$(($VERSION_NUMBER - 1))
+          aws ecr batch-delete-image --repository-name $DOCKER_IMAGE --image-ids imageTag=$PREVIOUS_VERSION_NUMBER || true
+
+          # Tag and push the Docker image
+          docker tag $DOCKER_IMAGE:$VERSION_NUMBER $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:$VERSION_NUMBER
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DOCKER_IMAGE:$VERSION_NUMBER
